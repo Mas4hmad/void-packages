@@ -1,0 +1,595 @@
+# Template file for 'vitruvianos'
+pkgname=vitruvianos
+version=0.4.0
+revision=1
+archs="x86_64* i686*"
+# build_style=cmake
+hostmakedepends="
+ cmake
+ ninja
+ git
+ pkg-config
+ bison
+ flex
+ autoconf
+ automake
+ tar
+ python3
+ perl
+"
+makedepends="
+ freetype-devel
+ icu-devel
+ libinput-devel
+ libdrm-devel
+ libblkid-devel
+ eudev-libudev-devel
+ zlib-devel
+ ncurses-devel
+ MesaLib-devel
+ libglvnd-devel
+ libxkbcommon-devel
+ libseat-devel
+ libevdev-devel
+ libgomp-devel
+ elfutils-devel
+ expat-devel
+ fontconfig-devel
+ libxml2-devel
+ sqlite-devel
+ libedit-devel
+ dbus-devel
+ alsa-lib-devel
+ pulseaudio-devel
+ giflib-devel
+ attr-devel
+"
+depends="
+ bash
+ dbus
+ seatd
+ libinput
+ libdrm
+ libblkid
+ libgomp
+ libseat
+ elogind
+ attr
+ libxkbcommon
+ libevdev
+ eudev-libudev
+ mesa
+ libglvnd
+ glu
+ freetype
+ fontconfig
+ giflib
+ icu-libs
+ ncurses-libs
+ zlib
+ expat
+ libxml2
+ sqlite
+ libedit
+ alsa-lib
+ pulseaudio
+"
+short_desc="VitruvianOS - Linux-based OS inspired by BeOS/Haiku"
+maintainer="Your Name <your@email.com>"
+license="GPL-3.0-or-later, MIT"
+homepage="https://v-os.dev/"
+
+pre_fetch() {
+	git clone --recursive --depth 1 --branch ${version} \
+		https://github.com/VitruvianOS/Vitruvian.git ${wrksrc}
+
+	cd ${wrksrc}
+
+	for f in src/bin/chop.c src/bin/unchop.c; do
+		if [ -f "$f" ]; then
+			echo "PATCHING: $f (adding mode to open() with O_CREAT)"
+			sed -i 's/open(\([^,]*\), O_WRONLY|O_CREAT)/open(\1, O_WRONLY|O_CREAT, 0644)/g' "$f"
+			sed -i 's/open(\([^,]*\), O_CREAT|O_WRONLY)/open(\1, O_CREAT|O_WRONLY, 0644)/g' "$f"
+			sed -i 's/open(\([^,]*\), \(.*O_CREAT[^,]*\))/open(\1, \2, 0644)/g' "$f"
+		fi
+	done
+
+	find . -type f \( -name "CMakeLists.txt" -o -name "*.cmake" \) | while IFS= read -r f; do
+		if grep -q "dpkg-buildpackage" "$f" 2>/dev/null; then
+			echo "PATCHING: $f (removing dpkg-buildpackage)"
+			sed -i 's/dpkg-buildpackage/:/g' "$f"
+		fi
+		if grep -q "nexus-dkms" "$f" 2>/dev/null; then
+			echo "PATCHING: $f (disabling nexus-dkms move)"
+			sed -i 's|mv ../nexus-dkms|: # nexus-dkms|g' "$f"
+		fi
+	done
+
+	if [ -f build/packages.cmake ]; then
+		echo "PATCHING: build/packages.cmake (disabling CPack)"
+		sed -i 's/^INCLUDE(CPack)/# INCLUDE(CPack)/' build/packages.cmake
+		sed -i 's/^SET(CPACK_GENERATOR "DEB")/# SET(CPACK_GENERATOR "DEB")/' build/packages.cmake
+		sed -i 's/^SET(CPACK_DEBIAN_PACKAGE_ARCHITECTURE/# SET(CPACK_DEBIAN_PACKAGE_ARCHITECTURE/' build/packages.cmake
+		sed -i 's/^SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA/# SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA/' build/packages.cmake
+		sed -i 's/^SET(CPACK_DEBIAN_PACKAGE_MAINTAINER/# SET(CPACK_DEBIAN_PACKAGE_MAINTAINER/' build/packages.cmake
+	fi
+}
+
+
+pre_configure() {
+	cd ${wrksrc}
+	mkdir -p buildtools
+	cd buildtools
+	cmake -DBUILDTOOLS_MODE=1 .. -GNinja
+	ninja
+	cd ..
+	mkdir -p generated.${XBPS_TARGET_MACHINE}
+}
+
+do_configure() {
+	cd ${wrksrc}/generated.${XBPS_TARGET_MACHINE}
+	../configure --arch=${XBPS_TARGET_MACHINE} --build-type=Release
+}
+
+do_build() {
+	cd ${wrksrc}/generated.${XBPS_TARGET_MACHINE}
+	ninja
+}
+
+do_install() {
+	cd ${wrksrc}/generated.${XBPS_TARGET_MACHINE}
+	DESTDIR=${DESTDIR} ninja install
+
+	# === Remap Haiku-style layout to FHS ===
+	# /bin -> /usr/bin
+	if [ -d ${DESTDIR}/bin ]; then
+		vmkdir usr/bin
+		find ${DESTDIR}/bin -maxdepth 1 \( -type f -o -type l \) | while IFS= read -r f; do
+			[ -n "$f" ] || continue
+			mv "$f" ${DESTDIR}/usr/bin/
+		done
+		rm -rf ${DESTDIR}/bin
+	fi
+
+	# /lib -> /usr/lib
+	if [ -d ${DESTDIR}/lib ]; then
+		vmkdir usr/lib
+		find ${DESTDIR}/lib -maxdepth 1 \( -type f -o -type l \) | while IFS= read -r f; do
+			[ -n "$f" ] || continue
+			mv "$f" ${DESTDIR}/usr/lib/
+		done
+		rm -rf ${DESTDIR}/lib
+	fi
+
+	# /system -> /usr/lib/vitruvianos/system
+	# Preserve internal structure while satisfying FHS
+	if [ -d ${DESTDIR}/system ]; then
+		vmkdir usr/lib/vitruvianos
+		cp -a ${DESTDIR}/system ${DESTDIR}/usr/lib/vitruvianos/
+		rm -rf ${DESTDIR}/system
+	fi
+
+	# Remove /home entirely — never allowed in a package
+	rm -rf ${DESTDIR}/home
+
+	# === Nexus DKMS kernel modules ===
+	vmkdir usr/src/vitruvianos-nexus-${version}
+	vcopy ${wrksrc}/src/system/kernel/nexus/* usr/src/vitruvianos-nexus-${version}
+
+	cat > ${DESTDIR}/usr/src/vitruvianos-nexus-${version}/dkms.conf << EOF
+PACKAGE_NAME="vitruvianos-nexus"
+PACKAGE_VERSION="${version}"
+CLEAN="make clean"
+MAKE[0]="make -C \${kernel_source_dir} M=\${dkms_tree}/\${PACKAGE_NAME}/\${PACKAGE_VERSION}/build modules"
+BUILT_MODULE_NAME[0]="nexus"
+BUILT_MODULE_NAME[1]="nexus_fs"
+DEST_MODULE_LOCATION[0]="/kernel/drivers/vitruvian"
+DEST_MODULE_LOCATION[1]="/kernel/drivers/vitruvian"
+AUTOINSTALL="yes"
+EOF
+
+	# === VitruvianOS directory structure under /usr/lib/vitruvianos/system ===
+	_SYSROOT="${DESTDIR}/usr/lib/vitruvianos/system"
+	vmkdir usr/lib/vitruvianos/system/add-ons
+	vmkdir usr/lib/vitruvianos/system/apps
+	vmkdir usr/lib/vitruvianos/system/data
+	vmkdir usr/lib/vitruvianos/system/demos
+	vmkdir usr/lib/vitruvianos/system/develop
+	vmkdir usr/lib/vitruvianos/system/documentation
+	vmkdir usr/lib/vitruvianos/system/preferences
+	vmkdir usr/lib/vitruvianos/system/servers
+	vmkdir usr/lib/vitruvianos/system/settings
+	vmkdir usr/lib/vitruvianos/system/boot/post_install
+	vmkdir usr/lib/vitruvianos/system/boot/first_login
+
+	# Symlinks expected by VitruvianOS at runtime
+	# These point to system locations (absolute paths)
+	rm -rf ${_SYSROOT}/bin ${_SYSROOT}/lib ${_SYSROOT}/cache ${_SYSROOT}/var
+	ln -sf /bin ${_SYSROOT}/bin
+	ln -sf /lib ${_SYSROOT}/lib
+	ln -sf /tmp ${_SYSROOT}/cache
+	ln -sf /var ${_SYSROOT}/var
+
+	# Deskbar menu directories
+	vmkdir usr/lib/vitruvianos/system/data/deskbar/menu/Applications
+	vmkdir "usr/lib/vitruvianos/system/data/deskbar/menu/Desktop applets"
+	vmkdir usr/lib/vitruvianos/system/data/deskbar/menu/Demos
+	vmkdir usr/lib/vitruvianos/system/data/deskbar/menu/Preferences
+
+	# Trash and config dirs (created at runtime, not in package)
+	# vmkdir home/Desktop/Trash
+	# vmkdir home/config/settings/deskbar/menu
+	# vmkdir "home/config/settings/Tracker/Tracker New Templates"
+	# vmkdir home/config/settings/printers/Preview
+	# vmkdir "home/config/settings/printers/Save as PDF"
+	vmkdir usr/lib/vitruvianos/system/settings/etc/profile.d
+
+	# Vitruvian profile for bash login shells
+	vmkdir usr/lib/vitruvianos/system/settings/etc
+	cat > ${DESTDIR}/usr/lib/vitruvianos/system/settings/etc/profile << 'EOF'
+# VitruvianOS environment setup
+if [ -z "$_VOS_PROFILE_SOURCED" ]; then
+	export _VOS_PROFILE_SOURCED=1
+	export VITRUVIAN_SYSTEM=/usr/lib/vitruvianos/system
+	echo "Welcome to VitruvianOS"
+fi
+EOF
+
+	vmkdir etc/profile.d
+	cat > ${DESTDIR}/etc/profile.d/vitruvian.sh << 'EOF'
+# Guard against recursive sourcing
+if [ -z "$_VOS_PROFILE_SOURCED" ] && [ -f /usr/lib/vitruvianos/system/settings/etc/profile ]; then
+	export _VOS_PROFILE_SOURCED=1
+	. /usr/lib/vitruvianos/system/settings/etc/profile
+fi
+EOF
+
+	# Extract mime database tarball if built
+	if [ -f ${wrksrc}/generated.${XBPS_TARGET_MACHINE}/mime_db.tar ]; then
+		echo "Extracting mime_db.tar..."
+		tar --xattrs -xf ${wrksrc}/generated.${XBPS_TARGET_MACHINE}/mime_db.tar 			-C ${DESTDIR}/usr/lib/vitruvianos/system/data/
+	fi
+
+	# Extract app attrs tarball if built and apply xattrs to installed binaries
+	if [ -f ${wrksrc}/generated.${XBPS_TARGET_MACHINE}/apps_attrs.tar ]; then
+		echo "Applying app binary xattrs..."
+		_tmp=$(mktemp -d)
+		tar --xattrs -xf ${wrksrc}/generated.${XBPS_TARGET_MACHINE}/apps_attrs.tar -C "$_tmp"
+		find "$_tmp" -type f | while IFS= read -r _src; do
+			# Map old /system path to new /usr/lib/vitruvianos/system path
+			_rel="${_src#$_tmp}"
+			_dst="${DESTDIR}/usr/lib/vitruvianos${_rel}"
+			[ -f "$_dst" ] || continue
+			getfattr -d -m user.beos -e hex "$_src" 2>/dev/null \
+				| sed "s|${_rel#/}|/usr/lib/vitruvianos${_rel}|g" \
+				| setfattr --restore - 2>/dev/null || true
+		done
+		rm -rf "$_tmp"
+	fi
+
+	# === elogind runit service ===
+	vmkdir etc/sv/elogind
+	cat > ${DESTDIR}/etc/sv/elogind/run << 'EOF'
+#!/bin/sh
+exec 2>&1
+mkdir -p /run/elogind
+mkdir -p /var/lib/elogind
+exec /usr/lib/elogind/elogind
+EOF
+	chmod 755 ${DESTDIR}/etc/sv/elogind/run
+
+	vmkdir etc/sv/elogind/log
+	cat > ${DESTDIR}/etc/sv/elogind/log/run << 'EOF'
+#!/bin/sh
+exec svlogd -tt /var/log/vitruvian/elogind
+EOF
+	chmod 755 ${DESTDIR}/etc/sv/elogind/log/run
+
+	vmkdir var/log/vitruvian/elogind
+
+	# === VitruvianOS runit services ===
+	for svc in vitruvian-dbus vitruvian-nexus vitruvian-registrar \
+			vitruvian-janus vitruvian-janus_launch \
+			vitruvian-app_server vitruvian-input_server vitruvian-desktop \
+			vitruvian-net_server vitruvian-midi_server vitruvian-print_server \
+			vitruvian-media_server; do
+		vmkdir etc/sv/${svc}
+	done
+
+	# 1. vitruvian-dbus
+	cat > ${DESTDIR}/etc/sv/vitruvian-dbus/run << 'EOF'
+#!/bin/sh
+exec 2>&1
+sv start elogind 2>/dev/null || true
+mkdir -p /run/dbus
+exec dbus-daemon --system --nofork --nopidfile
+EOF
+	chmod 755 ${DESTDIR}/etc/sv/vitruvian-dbus/run
+
+	# 2. vitruvian-nexus
+	cat > ${DESTDIR}/etc/sv/vitruvian-nexus/run << 'EOF'
+#!/bin/sh
+exec 2>&1
+modprobe nexus 2>/dev/null || true
+modprobe nexus_fs 2>/dev/null || true
+exec pause
+EOF
+	chmod 755 ${DESTDIR}/etc/sv/vitruvian-nexus/run
+
+	# 3. vitruvian-registrar
+	cat > ${DESTDIR}/etc/sv/vitruvian-registrar/run << 'EOF'
+#!/bin/sh
+exec 2>&1
+sv start vitruvian-dbus || exit 1
+export XDG_SESSION_TYPE=x11
+export XDG_SEAT=seat0
+export XDG_VTNR=7
+exec chpst -u root /usr/lib/vitruvianos/system/servers/registrar
+EOF
+	chmod 755 ${DESTDIR}/etc/sv/vitruvian-registrar/run
+
+	# 4. vitruvian-janus (session manager - new in 0.4.0)
+	cat > ${DESTDIR}/etc/sv/vitruvian-janus/run << 'EOF'
+#!/bin/sh
+exec 2>&1
+sv start vitruvian-registrar || exit 1
+sv start vitruvian-dbus || exit 1
+export DISPLAY=:0
+export XDG_SESSION_TYPE=x11
+export XDG_SEAT=seat0
+export XDG_VTNR=7
+export XDG_RUNTIME_DIR=/run/user/0
+mkdir -p $XDG_RUNTIME_DIR
+exec chpst -u root /usr/lib/vitruvianos/system/servers/janus
+EOF
+	chmod 755 ${DESTDIR}/etc/sv/vitruvian-janus/run
+
+	# 5. vitruvian-janus_launch (privileged launcher - new in 0.4.0)
+	cat > ${DESTDIR}/etc/sv/vitruvian-janus_launch/run << 'EOF'
+#!/bin/sh
+exec 2>&1
+sv start vitruvian-janus || exit 1
+exec chpst -u root /usr/lib/vitruvianos/system/servers/janus_launch
+EOF
+	chmod 755 ${DESTDIR}/etc/sv/vitruvian-janus_launch/run
+
+	# 6. vitruvian-app_server
+	cat > ${DESTDIR}/etc/sv/vitruvian-app_server/run << 'EOF'
+#!/bin/sh
+exec 2>&1
+sv start vitruvian-janus || exit 1
+sv start vitruvian-registrar || exit 1
+sv start vitruvian-dbus || exit 1
+export DISPLAY=:0
+export XDG_SESSION_TYPE=x11
+export XDG_SEAT=seat0
+exec chpst -u root /usr/lib/vitruvianos/system/servers/app_server
+EOF
+	chmod 755 ${DESTDIR}/etc/sv/vitruvian-app_server/run
+
+	# 7. vitruvian-input_server
+	cat > ${DESTDIR}/etc/sv/vitruvian-input_server/run << 'EOF'
+#!/bin/sh
+exec 2>&1
+sv start vitruvian-app_server || exit 1
+export XDG_SEAT=seat0
+export XDG_SESSION_TYPE=x11
+exec chpst -u root /usr/lib/vitruvianos/system/servers/input_server
+EOF
+	chmod 755 ${DESTDIR}/etc/sv/vitruvian-input_server/run
+
+	# 8. vitruvian-desktop
+	cat > ${DESTDIR}/etc/sv/vitruvian-desktop/run << 'EOF'
+#!/bin/sh
+exec 2>&1
+sv start vitruvian-app_server || exit 1
+sv start vitruvian-input_server || exit 1
+sv start vitruvian-janus || exit 1
+sv start vitruvian-registrar || exit 1
+export DISPLAY=:0
+export XDG_SESSION_TYPE=x11
+export XDG_SEAT=seat0
+export XDG_VTNR=7
+export XDG_RUNTIME_DIR=/run/user/0
+mkdir -p $XDG_RUNTIME_DIR
+exec chpst -u root /usr/lib/vitruvianos/system/servers/desktop
+EOF
+	chmod 755 ${DESTDIR}/etc/sv/vitruvian-desktop/run
+
+	# 9. vitruvian-net_server
+	cat > ${DESTDIR}/etc/sv/vitruvian-net_server/run << 'EOF'
+#!/bin/sh
+exec 2>&1
+exec chpst -u root /usr/lib/vitruvianos/system/servers/net_server
+EOF
+	chmod 755 ${DESTDIR}/etc/sv/vitruvian-net_server/run
+
+	# 10. vitruvian-midi_server
+	cat > ${DESTDIR}/etc/sv/vitruvian-midi_server/run << 'EOF'
+#!/bin/sh
+exec 2>&1
+exec chpst -u root /usr/lib/vitruvianos/system/servers/midi_server
+EOF
+	chmod 755 ${DESTDIR}/etc/sv/vitruvian-midi_server/run
+
+	# 11. vitruvian-print_server
+	cat > ${DESTDIR}/etc/sv/vitruvian-print_server/run << 'EOF'
+#!/bin/sh
+exec 2>&1
+exec chpst -u root /usr/lib/vitruvianos/system/servers/print_server
+EOF
+	chmod 755 ${DESTDIR}/etc/sv/vitruvian-print_server/run
+
+	# 12. vitruvian-media_server
+	cat > ${DESTDIR}/etc/sv/vitruvian-media_server/run << 'EOF'
+#!/bin/sh
+exec 2>&1
+export XDG_SESSION_TYPE=x11
+export XDG_SEAT=seat0
+exec chpst -u root /usr/lib/vitruvianos/system/servers/media_server
+EOF
+	chmod 755 ${DESTDIR}/etc/sv/vitruvian-media_server/run
+
+	# Log services for core components
+	for svc in vitruvian-app_server vitruvian-input_server vitruvian-registrar vitruvian-janus; do
+		vmkdir etc/sv/${svc}/log
+		vmkdir var/log/vitruvian/${svc}
+		cat > ${DESTDIR}/etc/sv/${svc}/log/run << EOF
+#!/bin/sh
+exec svlogd -tt /var/log/vitruvian/${svc}
+EOF
+		chmod 755 ${DESTDIR}/etc/sv/${svc}/log/run
+	done
+
+	# === Session control scripts ===
+	vmkdir usr/bin
+	cat > ${DESTDIR}/usr/bin/vitruvian-session << 'EOF'
+#!/bin/sh
+# VitruvianOS session control for Void Linux (runit)
+# Updated for VitruvianOS 0.4.0 (janus session manager)
+
+ACTION=${1:-status}
+
+case "$ACTION" in
+	start)
+		echo "Starting VitruvianOS session..."
+		sv start vitruvian-dbus 2>/dev/null || true
+		sv start vitruvian-nexus 2>/dev/null || true
+		sv start vitruvian-registrar 2>/dev/null || true
+		sv start vitruvian-janus 2>/dev/null || true
+		sv start vitruvian-janus_launch 2>/dev/null || true
+		sv start vitruvian-app_server 2>/dev/null || true
+		sv start vitruvian-input_server 2>/dev/null || true
+		sv start vitruvian-desktop 2>/dev/null || true
+		sv start vitruvian-net_server 2>/dev/null || true
+		sv start vitruvian-media_server 2>/dev/null || true
+		echo "Done."
+		;;
+	stop)
+		echo "Stopping VitruvianOS session..."
+		sv stop vitruvian-desktop 2>/dev/null || true
+		sv stop vitruvian-input_server 2>/dev/null || true
+		sv stop vitruvian-app_server 2>/dev/null || true
+		sv stop vitruvian-janus_launch 2>/dev/null || true
+		sv stop vitruvian-janus 2>/dev/null || true
+		sv stop vitruvian-registrar 2>/dev/null || true
+		sv stop vitruvian-media_server 2>/dev/null || true
+		sv stop vitruvian-net_server 2>/dev/null || true
+		sv stop vitruvian-nexus 2>/dev/null || true
+		sv stop vitruvian-dbus 2>/dev/null || true
+		echo "Done."
+		;;
+	restart)
+		$0 stop
+		sleep 3
+		$0 start
+		;;
+	status)
+		echo "=== VitruvianOS Service Status ==="
+		sv status vitruvian-dbus 2>/dev/null || echo "vitruvian-dbus: not enabled"
+		sv status vitruvian-nexus 2>/dev/null || echo "vitruvian-nexus: not enabled"
+		sv status vitruvian-registrar 2>/dev/null || echo "vitruvian-registrar: not enabled"
+		sv status vitruvian-janus 2>/dev/null || echo "vitruvian-janus: not enabled"
+		sv status vitruvian-janus_launch 2>/dev/null || echo "vitruvian-janus_launch: not enabled"
+		sv status vitruvian-app_server 2>/dev/null || echo "vitruvian-app_server: not enabled"
+		sv status vitruvian-input_server 2>/dev/null || echo "vitruvian-input_server: not enabled"
+		sv status vitruvian-desktop 2>/dev/null || echo "vitruvian-desktop: not enabled"
+		sv status vitruvian-net_server 2>/dev/null || echo "vitruvian-net_server: not enabled"
+		sv status vitruvian-media_server 2>/dev/null || echo "vitruvian-media_server: not enabled"
+		;;
+	*)
+		echo "Usage: $0 [start|stop|restart|status]"
+		exit 1
+		;;
+esac
+EOF
+	chmod 755 ${DESTDIR}/usr/bin/vitruvian-session
+
+	cat > ${DESTDIR}/usr/bin/vitruvian-user-session << 'EOF'
+#!/bin/sh
+# Launch VitruvianOS desktop session for a specific user
+# Requires elogind for proper session management
+
+USER=${1:-$USER}
+
+if [ "$USER" = "root" ]; then
+	echo "Warning: Running as root. Use a regular user for safety."
+fi
+
+SEAT=$(loginctl show-seat seat0 --property=ActiveSession --value 2>/dev/null || echo "seat0")
+VT=$(loginctl show-session $SEAT --property=VTNr --value 2>/dev/null || echo "7")
+UID_NUM=$(id -u $USER)
+
+export XDG_SESSION_TYPE=x11
+export XDG_SEAT=seat0
+export XDG_VTNR=$VT
+export XDG_RUNTIME_DIR=/run/user/$UID_NUM
+export DISPLAY=:0
+
+mkdir -p $XDG_RUNTIME_DIR
+chown $USER:$USER $XDG_RUNTIME_DIR
+chmod 700 $XDG_RUNTIME_DIR
+
+echo "Starting VitruvianOS session for $USER"
+echo "  Seat: $SEAT, VT: $VT, UID: $UID_NUM"
+
+exec su - $USER -c "
+    export XDG_SESSION_TYPE=$XDG_SESSION_TYPE
+    export XDG_SEAT=$XDG_SEAT
+    export XDG_VTNR=$XDG_VTNR
+    export XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR
+    export DISPLAY=$DISPLAY
+    /usr/lib/vitruvianos/system/servers/desktop
+"
+EOF
+	chmod 755 ${DESTDIR}/usr/bin/vitruvian-user-session
+}
+
+post_install() {
+	cat << 'MSG'
+================================================================
+VitruvianOS 0.4.0 installed with full integration.
+
+This package includes:
+  - VitruvianOS base system (built from source)
+  - Nexus kernel modules (DKMS source in /usr/src/vitruvianos-nexus-0.4.0)
+  - elogind runit service
+  - All VitruvianOS runit services (dbus, nexus, registrar, janus,
+    janus_launch, app_server, input_server, desktop, net_server,
+    midi_server, print_server, media_server)
+  - Session control scripts (vitruvian-session, vitruvian-user-session)
+
+IMPORTANT POST-INSTALL STEPS:
+
+1. Create the /system symlink (required for VitruvianOS binaries):
+     sudo ln -sf /usr/lib/vitruvianos/system /system
+
+2. Build and install kernel modules:
+     sudo dkms add -m vitruvianos-nexus -v 0.4.0
+     sudo dkms build -m vitruvianos-nexus -v 0.4.0
+     sudo dkms install -m vitruvianos-nexus -v 0.4.0
+
+3. Enable services (in dependency order):
+     sudo ln -s /etc/sv/elogind /var/service/
+     sudo ln -s /etc/sv/vitruvian-dbus /var/service/
+     sudo ln -s /etc/sv/vitruvian-nexus /var/service/
+     sudo ln -s /etc/sv/vitruvian-registrar /var/service/
+     sudo ln -s /etc/sv/vitruvian-janus /var/service/
+     sudo ln -s /etc/sv/vitruvian-janus_launch /var/service/
+     sudo ln -s /etc/sv/vitruvian-app_server /var/service/
+     sudo ln -s /etc/sv/vitruvian-input_server /var/service/
+     sudo ln -s /etc/sv/vitruvian-desktop /var/service/
+     sudo ln -s /etc/sv/vitruvian-net_server /var/service/
+     sudo ln -s /etc/sv/vitruvian-media_server /var/service/
+
+4. Or use the session control script:
+     sudo vitruvian-session start
+     sudo vitruvian-session status
+
+5. Launch per-user session:
+     sudo vitruvian-user-session <username>
+
+See https://v-os.dev/ for documentation.
+================================================================
+MSG
+}

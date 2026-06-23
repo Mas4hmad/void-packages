@@ -1,0 +1,25 @@
+# Template file for 'tde-tdegraphics'
+pkgname=tde-tdegraphics
+version=14.1.6
+revision=1
+archs="x86_64 x86_64-musl i686 aarch64 armv7l"
+build_style=cmake
+configure_args="
+ -DCMAKE_INSTALL_PREFIX=/opt/trinity
+ -DLIB_SUFFIX=${XBPS_TARGET_WORDSIZE}
+ -DBUILD_ALL=ON
+ -DWITH_PDF=ON"
+hostmakedepends="cmake ninja pkg-config tde-cmake-trinity"
+makedepends="
+ tde-tqt3-devel tde-tqtinterface-devel tde-tdelibs-devel
+ tde-libart-lgpl-devel libX11-devel libXext-devel libXt-devel
+ libxml2-devel libxslt-devel zlib-devel libpng-devel
+ libjpeg-turbo-devel libtiff-devel poppler-devel
+ libspectre-devel fribidi-devel"
+depends="tde-tdelibs libpng libjpeg-turbo libtiff poppler"
+short_desc="Trinity Desktop Environment graphics applications"
+maintainer="Your Name <your.email@example.com>"
+license="GPL-2.0-or-later"
+homepage="https://trinitydesktop.org"
+distfiles="https://mirror.ppa.trinitydesktop.org/trinity/releases/R${version}/main/core/tdegraphics-trinity-${version}.tar.xz"
+checksum=d4ca4d31feda92a818e424cf04bb11adbc021a482dd361151ba651c2d7bfae6f

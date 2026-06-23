@@ -1,0 +1,15 @@
+# Template file for 'tde-cmake-trinity'
+pkgname=tde-cmake-trinity
+version=14.1.6
+revision=1
+archs="x86_64 x86_64-musl i686 aarch64 armv7l"
+build_style=cmake
+configure_args="-DCMAKE_INSTALL_PREFIX=/opt/trinity"
+hostmakedepends="cmake ninja"
+makedepends=""
+short_desc="Trinity Desktop Environment CMake build system"
+maintainer="Your Name <your.email@example.com>"
+license="BSD-2-Clause"
+homepage="https://trinitydesktop.org"
+distfiles="https://mirror.ppa.trinitydesktop.org/trinity/releases/R${version}/main/dependencies/tde-cmake-trinity-${version}.tar.xz"
+checksum=c706d222681ddb2c56468f0b2849ae8b478f4d26b9d2322184b07a7cb65d8ca8

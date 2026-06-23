@@ -1,0 +1,23 @@
+# Template file for 'tde-tdesdk'
+pkgname=tde-tdesdk
+version=14.1.6
+revision=1
+archs="x86_64 x86_64-musl i686 aarch64 armv7l"
+build_style=cmake
+configure_args="
+ -DCMAKE_INSTALL_PREFIX=/opt/trinity
+ -DLIB_SUFFIX=${XBPS_TARGET_WORDSIZE}
+ -DBUILD_ALL=ON"
+hostmakedepends="cmake ninja pkg-config tde-cmake-trinity perl"
+makedepends="
+ tde-tqt3-devel tde-tqtinterface-devel tde-arts-devel
+ tde-tdelibs-devel tde-tdepim-devel libX11-devel libXext-devel
+ libXt-devel libxml2-devel libxslt-devel zlib-devel
+ subversion-devel"
+depends="tde-tdelibs tde-arts tde-tdepim"
+short_desc="Trinity Desktop Environment software development kit"
+maintainer="Your Name <your.email@example.com>"
+license="GPL-2.0-or-later"
+homepage="https://trinitydesktop.org"
+distfiles="https://mirror.ppa.trinitydesktop.org/trinity/releases/R${version}/main/core/tdesdk-trinity-${version}.tar.xz"
+checksum=342c972238a413a4f56070754d8f32c00d9cab16feeb321fa2ed30291e8a702f

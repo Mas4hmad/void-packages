@@ -1,0 +1,23 @@
+# Template file for 'tde-tdebindings'
+pkgname=tde-tdebindings
+version=14.1.6
+revision=1
+archs="x86_64 x86_64-musl i686 aarch64 armv7l"
+build_style=cmake
+configure_args="
+ -DCMAKE_INSTALL_PREFIX=/opt/trinity
+ -DLIB_SUFFIX=${XBPS_TARGET_WORDSIZE}
+ -DBUILD_ALL=ON"
+hostmakedepends="cmake ninja pkg-config tde-cmake-trinity python2"
+makedepends="
+ tde-tqt3-devel tde-tqtinterface-devel tde-arts-devel
+ tde-tdelibs-devel python2-devel ruby-devel jdk-openjdk
+ libX11-devel libXext-devel libXt-devel libxml2-devel
+ libxslt-devel"
+depends="tde-tdelibs tde-arts python2 ruby"
+short_desc="Trinity Desktop Environment language bindings"
+maintainer="Your Name <your.email@example.com>"
+license="GPL-2.0-or-later"
+homepage="https://trinitydesktop.org"
+distfiles="https://mirror.ppa.trinitydesktop.org/trinity/releases/R${version}/main/core/tdebindings-trinity-${version}.tar.xz"
+checksum=ac40f0cad27c13a9f37a4a0b521d774aa64c4883dd50163d6f7470b5163428f0

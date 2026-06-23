@@ -1,0 +1,23 @@
+# Template file for 'tde-tdenetwork'
+pkgname=tde-tdenetwork
+version=14.1.6
+revision=1
+archs="x86_64 x86_64-musl i686 aarch64 armv7l"
+build_style=cmake
+configure_args="
+ -DCMAKE_INSTALL_PREFIX=/opt/trinity
+ -DLIB_SUFFIX=${XBPS_TARGET_WORDSIZE}
+ -DBUILD_ALL=ON"
+hostmakedepends="cmake ninja pkg-config tde-cmake-trinity"
+makedepends="
+ tde-tqt3-devel tde-tqtinterface-devel tde-arts-devel
+ tde-tdelibs-devel tde-tqca-devel libX11-devel libXext-devel
+ libXt-devel libxml2-devel libxslt-devel zlib-devel
+ openssl-devel libotr-devel"
+depends="tde-tdelibs tde-arts tde-tqca openssl"
+short_desc="Trinity Desktop Environment network applications"
+maintainer="Your Name <your.email@example.com>"
+license="GPL-2.0-or-later"
+homepage="https://trinitydesktop.org"
+distfiles="https://mirror.ppa.trinitydesktop.org/trinity/releases/R${version}/main/core/tdenetwork-trinity-${version}.tar.xz"
+checksum=c505cfeca22262523fe519c28a75a09e3dc39e1181de2ae568ca960bbbd50dd2

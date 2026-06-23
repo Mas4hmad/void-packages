@@ -1,0 +1,5 @@
+#!/bin/sh
+# nasd - Network Audio System daemon
+# -aa  allows connections from any host (relax access control)
+# -v   verbose logging; remove for production use
+exec nasd -aa 2>&1

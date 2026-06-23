@@ -1,0 +1,82 @@
+# Template file for 'tde-tdebase'
+pkgname=tde-tdebase
+version=14.1.6
+revision=1
+archs="x86_64 x86_64-musl i686 aarch64 armv7l"
+build_style=cmake
+configure_args="
+ -DCMAKE_INSTALL_PREFIX=/opt/trinity
+ -DSYSCONF_INSTALL_DIR=/etc/trinity
+ -DLIB_SUFFIX=${XBPS_TARGET_WORDSIZE}
+ -DWITH_SASL=ON
+ -DWITH_LDAP=ON
+ -DWITH_SAMBA=ON
+ -DWITH_OPENEXR=ON
+ -DWITH_XCOMPOSITE=ON
+ -DWITH_XCURSOR=ON
+ -DWITH_XFIXES=ON
+ -DWITH_XRANDR=ON
+ -DWITH_XRENDER=ON
+ -DWITH_XTEST=ON
+ -DWITH_OPENGL=ON
+ -DWITH_XSCREENSAVER=ON
+ -DWITH_LIBART=ON
+ -DWITH_LIBRAW1394=ON
+ -DWITH_PAM=ON
+ -DWITH_XDMCP=ON
+ -DWITH_XINERAMA=ON
+ -DWITH_ARTS=ON
+ -DWITH_I8K=ON
+ -DWITH_SENSORS=ON
+ -DWITH_TDEHWLIB=ON
+ -DWITH_UPOWER=ON
+ -DBUILD_ALL=ON
+ -DKCHECKPASS_PAM_SERVICE=tde-checkpass
+ -DTDM_PAM_SERVICE=tde
+ -DTDESCREENSAVER_PAM_SERVICE=tde-screensaver"
+hostmakedepends="cmake ninja pkg-config tde-cmake-trinity perl"
+makedepends="
+ tde-tqt3-devel tde-tqtinterface-devel tde-arts-devel
+ tde-dbus-tqt-devel tde-dbus-1-tqt-devel tde-tdelibs-devel
+ tde-libart-lgpl-devel libjpeg-turbo-devel libpng-devel
+ libxslt-devel openssl-devel zlib-devel dbus-devel
+ libxml2-devel libX11-devel libXext-devel libXrender-devel
+ libXft-devel libSM-devel libICE-devel libXcursor-devel
+ libXrandr-devel libXinerama-devel libXfixes-devel libXt-devel
+ libXmu-devel libxkbfile-devel glu-devel mesa-devel
+ cups-devel pam-devel libraw1394-devel lcms2-devel
+ openexr-devel libssh-devel lm_sensors-devel
+ htdig libxss-devel libxtst-devel"
+depends="
+ tde-tdelibs tde-dbus-1-tqt
+ htdig libraw1394 libssh libxss libxtst
+ lm_sensors openssl ttf-dejavu xorg-server xorg-xinit"
+short_desc="Trinity Desktop Environment base components"
+maintainer="Your Name <your.email@example.com>"
+license="GPL-2.0-or-later"
+homepage="https://trinitydesktop.org"
+distfiles="https://mirror.ppa.trinitydesktop.org/trinity/releases/R${version}/main/core/tdebase-trinity-${version}.tar.xz"
+checksum=03135d1d9129c6bdbed60de02f80c6256c34bf6b00c8ab94e14e987804a3a250
+
+post_install() {
+ # Create xsessions directory for display managers
+ vmkdir usr/share/xsessions
+
+ # Create starttde compatibility symlink
+ ln -sf starttde ${DESTDIR}/opt/trinity/bin/starttrinity
+
+ # Install PAM configuration files
+ for pamfile in tde tde-np tde-screensaver tde-checkpass; do
+  vinstall ${wrksrc}/${pamfile}.pam 644 etc/pam.d ${pamfile}
+ done
+}
+
+tde-tdebase-devel_package() {
+ short_desc+=" - development files"
+ depends="tde-tdebase>=${version}_${revision} tde-tdelibs-devel"
+ pkg_install() {
+  vmove opt/trinity/include
+  vmove opt/trinity/lib/pkgconfig
+  vmove "opt/trinity/lib/*.so"
+ }
+}

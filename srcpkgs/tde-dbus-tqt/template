@@ -1,0 +1,18 @@
+# Template file for 'tde-dbus-tqt'
+pkgname=tde-dbus-tqt
+version=14.1.6
+revision=1
+archs="x86_64 x86_64-musl i686 aarch64 armv7l"
+build_style=cmake
+configure_args="
+ -DCMAKE_INSTALL_PREFIX=/opt/trinity
+ -DLIB_SUFFIX=${XBPS_TARGET_WORDSIZE}"
+hostmakedepends="cmake ninja pkg-config tde-cmake-trinity"
+makedepends="tde-tqt3-devel dbus-devel"
+depends="dbus"
+short_desc="D-Bus TQt bindings for Trinity"
+maintainer="Your Name <your.email@example.com>"
+license="GPL-2.0-or-later"
+homepage="https://trinitydesktop.org"
+distfiles="https://mirror.ppa.trinitydesktop.org/trinity/releases/R${version}/main/dependencies/dbus-tqt-trinity-${version}.tar.xz"
+checksum=0e62c1bca2dc0fb56a09b289c97b27b361e39ceeb7d3f488c2275f44ac434dd2

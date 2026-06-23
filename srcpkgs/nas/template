@@ -1,0 +1,106 @@
+# Template file for 'nas'
+pkgname=nas
+version=1.9.5
+revision=1
+short_desc="Network Audio System - portable, network-transparent audio"
+maintainer="Orphaned <orphan@voidlinux.org>"
+license="HPND, MIT"
+homepage="https://radscan.com/nas.html"
+distfiles="https://downloads.sourceforge.net/sourceforge/nas/nas-${version}.tar.gz"
+checksum=b7884afb38feec03a196bd3b7e9c47b803c830ecd10d7455e9c97e122c37944c
+
+# Build tools run on the host
+hostmakedepends="imake bison flex"
+
+# Development headers needed at compile time
+makedepends="libXaw-devel libXt-devel libXmu-devel libXpm-devel
+ libXext-devel libICE-devel libSM-devel libX11-devel libXau-devel"
+
+
+wrksrc="nas-${version}"
+
+do_build() {
+	# Step 1: generate root Makefile from the top-level Imakefile only
+	xmkmf
+
+	# Step 2: generate Makefiles in every subdirectory
+	make Makefiles
+
+	# Step 3: FIX for CPP sanity-check failure
+	#
+	# imake puts its internal CPP command into the make environment:
+	#   CPP = cpp -traditional -Dlinux -D__amd64__ -D_POSIX_C_SOURCE=199309L ...
+	#
+	# The config/Makefile's "includes" target calls:
+	#   sh -c "unset CFLAGS LDFLAGS; ./configure"
+	#
+	# That configure is an old autoconf script.  It inherits CPP from the make
+	# environment (make does NOT honour "unset" for its own variables), then
+	# tries "cpp -traditional ..." as the C preprocessor.  Modern cpp with
+	# -traditional can no longer preprocess <stdlib.h>, so autoconf's sanity
+	# check fails and configure exits with an error.
+	#
+	# Fix: add CPP to the unset list so configure auto-detects "gcc -E" instead.
+	vsed -i 's/unset CFLAGS LDFLAGS;/unset CFLAGS LDFLAGS CPP CPPFLAGS;/' \
+		config/Makefile
+
+	# step 3b:
+	echo ".NOTPARALLEL:" >> server/Makefile
+
+	# Step 4: create include symlinks (this is what runs config/configure)
+	make includes
+
+	# Step 5: run 'make depend' with a no-op gccmakedep stub
+	#
+	# The depend target does two things in server/dia/:
+	#   (a) runs bison/flex to generate gram.c, gram.h, and lex.c — these
+	#       generated files are #included by main.c and others; without them
+	#       compilation fails with "gram.h: No such file or directory".
+	#   (b) calls gccmakedep to append header-dependency lines to Makefiles.
+	#
+	# Void's imake package does not ship gccmakedep, so (b) would fail.
+	# The fix: inject a no-op gccmakedep stub at the front of PATH so that
+	# (a) still runs normally while (b) silently does nothing.
+	local _fakedir="${BUILDDIR}/fake-bin"
+	mkdir -p "${_fakedir}"
+	printf '#!/bin/sh\nexit 0\n' > "${_fakedir}/gccmakedep"
+	chmod +x "${_fakedir}/gccmakedep"
+	PATH="${_fakedir}:${PATH}" make depend
+
+	# Step 6: compile
+	# LDLIBS=-lfl  — newer flex no longer links -lfl by default; without it
+	#                nasd fails to link due to undefined yywrap.
+	# CDEBUGFLAGS  — pass through the Void CFLAGS and suppress GCC 12+
+	#                errors for implicit-int / implicit-function-declaration
+	#                / int-to-pointer casts that are rife in this 2015 code.
+	make ${makejobs} \
+		CDEBUGFLAGS="${CFLAGS} -Wno-implicit-int -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-pointer-types" \
+		LDLIBS="-lfl"
+}
+
+do_install() {
+	make install DESTDIR="${DESTDIR}" USRLIBDIR=/usr/lib \
+		CDEBUGFLAGS="${CFLAGS}" LDLIBS="-lfl"
+	make install.man DESTDIR="${DESTDIR}"
+
+	# Install runit service for nasd daemon
+	vsv nasd
+}
+
+libaudio_package() {
+    short_desc="Network Audio System client library"
+    shlib_provides="libAudio.so.2"
+    pkg_install() {
+        vmove usr/lib/libAudio.so.*
+    }
+}
+
+libaudio-devel_package() {
+	short_desc="Network Audio System client library - development files"
+	depends="libaudio>=${version}_${revision}"
+	pkg_install() {
+		vmove usr/include
+		vmove "usr/lib/*.so"
+		vmove "usr/lib/*.a"
+	}
+}

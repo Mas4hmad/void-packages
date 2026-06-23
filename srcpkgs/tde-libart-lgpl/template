@@ -1,0 +1,17 @@
+# Template file for 'tde-libart-lgpl'
+pkgname=tde-libart-lgpl
+version=14.1.6
+revision=1
+archs="x86_64 x86_64-musl i686 aarch64 armv7l"
+build_style=cmake
+configure_args="
+ -DCMAKE_INSTALL_PREFIX=/opt/trinity
+ -DLIB_SUFFIX=${XBPS_TARGET_WORDSIZE}"
+hostmakedepends="cmake ninja pkg-config tde-cmake-trinity"
+makedepends=""
+short_desc="Trinity patched version of libart-lgpl"
+maintainer="Your Name <your.email@example.com>"
+license="LGPL-2.0-or-later"
+homepage="https://trinitydesktop.org"
+distfiles="https://mirror.ppa.trinitydesktop.org/trinity/releases/R${version}/main/dependencies/libart-lgpl-trinity-${version}.tar.xz"
+checksum=bd51417db8543bdb020dc82661858e70ec30045e5aa14aa6200a99d85e136f1c

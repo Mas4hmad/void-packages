@@ -1,0 +1,93 @@
+# Template file for 'tde-tqt3'
+pkgname=tde-tqt3
+version=14.1.6
+revision=1
+archs="x86_64 x86_64-musl i686 aarch64 armv7l"
+build_style=gnu-configure
+hostmakedepends="pkg-config perl libtool which"
+makedepends="zlib-devel libpng-devel libmng-devel libjpeg-turbo-devel
+ freetype-devel fontconfig-devel libX11-devel libXext-devel libXrender-devel
+ libXft-devel libXmu-devel libXt-devel libSM-devel libICE-devel libXcursor-devel
+ libXrandr-devel libXinerama-devel libXfixes-devel libXi-devel libnsl-devel
+ libtirpc-devel
+ glu-devel MesaLib-devel openssl-devel dbus-devel libaudio-devel"
+depends="libaudio"
+short_desc="Trinity Qt3 - TQt widget toolkit for TDE"
+maintainer="Your Name <your.email@example.com>"
+license="GPL-2.0-or-later"
+homepage="https://trinitydesktop.org"
+distfiles="https://mirror.ppa.trinitydesktop.org/trinity/releases/R${version}/main/dependencies/tqt-trinity-${version}.tar.xz"
+checksum=546a9d071b175fffd1bfd51a87e2aeeccf8d2f782a6da8d7abf7e54942daeeeb
+
+pre_configure() {
+    cat >> mkspecs/linux-g++/qmake.conf << 'EOF'
+QMAKE_CFLAGS += -I/usr/include/tirpc
+QMAKE_CXXFLAGS += -I/usr/include/tirpc
+QMAKE_LFLAGS += -ltirpc
+EOF
+}
+
+do_configure() {
+    ./configure \
+        -prefix /opt/trinity/tqt3 \
+        -docdir /opt/trinity/tqt3/doc \
+        -headerdir /opt/trinity/tqt3/include \
+        -plugindir /opt/trinity/tqt3/plugins \
+        -datadir /opt/trinity/tqt3/share \
+        -translationdir /opt/trinity/tqt3/translations \
+        -sysconfdir /etc/trinity \
+        -thread \
+        -stl \
+        -no-exceptions \
+        -system-zlib \
+        -system-libpng \
+        -system-libmng \
+        -system-libjpeg \
+        -system-nas-sound \
+        -qt-gif \
+        -qt-imgfmt-png \
+        -qt-imgfmt-jpeg \
+        -qt-imgfmt-mng \
+        -nis \
+        -no-pch \
+        -dlopen-opengl \
+        -xft \
+        -xrender \
+        -xkb \
+        -ipv6 \
+        -enable-opengl \
+        -inputmethod \
+        -tablet
+}
+
+pre_build() {
+    find ${wrksrc} -name "libtqt-mt.so*" 2>/dev/null
+}
+
+do_build() {
+   LD_LIBRARY_PATH="${wrksrc}/lib:${LD_LIBRARY_PATH}" \
+   make ${makejobs}
+}
+
+do_install() {
+    make INSTALL_ROOT="${DESTDIR}" install
+}
+
+post_install() {
+ # Create pkgconfig directory
+ vmkdir opt/trinity/tqt3/lib/pkgconfig
+
+ # Create symlinks for compatibility
+ vmkdir opt/trinity/bin
+ ln -sf tqt3/bin/tqmake ${DESTDIR}/opt/trinity/bin/tqmake
+}
+
+tde-tqt3-devel_package() {
+    short_desc+=" - development files"
+    depends="${sourcepkg}>=${version}_${revision}"
+    pkg_install(){
+        vmove opt/trinity/tqt3/include
+        vmove "opt/trinity/tqt3/lib/*.so"
+        vmove opt/trinity/tqt3/lib/pkgconfig
+    }
+}

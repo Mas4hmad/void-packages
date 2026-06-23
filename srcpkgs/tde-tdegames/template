@@ -1,0 +1,21 @@
+# Template file for 'tde-tdegames'
+pkgname=tde-tdegames
+version=14.1.6
+revision=1
+archs="x86_64 x86_64-musl i686 aarch64 armv7l"
+build_style=cmake
+configure_args="
+ -DCMAKE_INSTALL_PREFIX=/opt/trinity
+ -DLIB_SUFFIX=${XBPS_TARGET_WORDSIZE}
+ -DBUILD_ALL=ON"
+hostmakedepends="cmake ninja pkg-config tde-cmake-trinity"
+makedepends="
+ tde-tqt3-devel tde-tqtinterface-devel tde-arts-devel
+ tde-tdelibs-devel libX11-devel libXext-devel libXt-devel"
+depends="tde-tdelibs tde-arts"
+short_desc="Trinity Desktop Environment games"
+maintainer="Your Name <your.email@example.com>"
+license="GPL-2.0-or-later"
+homepage="https://trinitydesktop.org"
+distfiles="https://mirror.ppa.trinitydesktop.org/trinity/releases/R${version}/main/core/tdegames-trinity-${version}.tar.xz"
+checksum=c383706ae02d8861ac0b8bd87cbaf5b59752df60fe7432af4d1ec28e2250b4ec

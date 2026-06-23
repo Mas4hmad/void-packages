@@ -1,0 +1,33 @@
+# Template file for 'tde-tdelibs'
+pkgname=tde-tdelibs
+version=14.1.6
+revision=1
+archs="x86_64 x86_64-musl i686 aarch64 armv7l"
+build_style=cmake
+configure_args="
+ -DCMAKE_INSTALL_PREFIX=/opt/trinity
+ -DSYSCONF_INSTALL_DIR=/etc/trinity
+ -DLIB_SUFFIX=${XBPS_TARGET_WORDSIZE}
+ -DBUILD_ALL=ON
+ -DWITH_ALL_OPTIONS=ON
+ -DWITH_GCC_VISIBILITY=ON"
+hostmakedepends="cmake ninja pkg-config tde-cmake-trinity perl"
+makedepends="
+ tde-tqt3-devel tde-tqtinterface-devel tde-arts-devel
+ tde-dbus-tqt-devel tde-dbus-1-tqt-devel tde-libart-lgpl-devel
+ libjpeg-turbo-devel libpng-devel libxslt-devel
+ openssl-devel zlib-devel dbus-devel avahi-libs-devel
+ cups-devel libxml2-devel freetype-devel fontconfig-devel
+ libX11-devel libXext-devel libXrender-devel libXft-devel
+ libSM-devel libICE-devel libXcursor-devel libXrandr-devel
+ libXinerama-devel libXfixes-devel libXt-devel glu-devel
+ libart-devel"
+depends="
+ tde-tqtinterface tde-arts tde-dbus-tqt tde-dbus-1-tqt
+ tde-libart-lgpl"
+short_desc="Trinity Desktop Environment core libraries"
+maintainer="Your Name <your.email@example.com>"
+license="GPL-2.0-or-later LGPL-2.0-or-later"
+homepage="https://trinitydesktop.org"
+distfiles="https://mirror.ppa.trinitydesktop.org/trinity/releases/R${version}/main/core/tdelibs-trinity-${version}.tar.xz"
+checksum=7ada8632bc92dcaab2a6c0328452dc87e9799714043de24be7c19ecf9ed74524

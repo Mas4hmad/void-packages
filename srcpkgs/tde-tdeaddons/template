@@ -1,0 +1,21 @@
+# Template file for 'tde-tdeaddons'
+pkgname=tde-tdeaddons
+version=14.1.6
+revision=1
+archs="x86_64 x86_64-musl i686 aarch64 armv7l"
+build_style=cmake
+configure_args="
+ -DCMAKE_INSTALL_PREFIX=/opt/trinity
+ -DLIB_SUFFIX=${XBPS_TARGET_WORDSIZE}
+ -DBUILD_ALL=ON"
+hostmakedepends="cmake ninja pkg-config tde-cmake-trinity"
+makedepends="
+ tde-tqt3-devel tde-tqtinterface-devel tde-arts-devel
+ tde-tdelibs-devel libX11-devel libXext-devel libXt-devel"
+depends="tde-tdelibs tde-arts"
+short_desc="Trinity Desktop Environment plugins and addons"
+maintainer="Your Name <your.email@example.com>"
+license="GPL-2.0-or-later"
+homepage="https://trinitydesktop.org"
+distfiles="https://mirror.ppa.trinitydesktop.org/trinity/releases/R${version}/main/core/tdeaddons-trinity-${version}.tar.xz"
+checksum=6fc194e7093ee109f71a50abde93420456bbe041206de461267bc224ff25a80a

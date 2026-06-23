@@ -1,0 +1,16 @@
+# Template file for 'tde-meta'
+pkgname=tde-meta
+version=14.1.6
+revision=1
+archs="x86_64 x86_64-musl i686 aarch64 armv7l"
+build_style=meta
+depends="
+ tde-tqt3 tde-tqtinterface tde-arts tde-dbus-tqt tde-dbus-1-tqt
+ tde-libart-lgpl tde-tdelibs tde-tdebase tde-tqca tde-tqca-tls
+ tde-tdeutils tde-tdemultimedia tde-tdenetwork tde-tdegraphics
+ tde-tdepim tde-tdeartwork tde-tdegames tde-tdeadmin tde-tdeaddons
+ tde-tdeedu tde-tdesdk tde-tdetoys tde-tdeaccessibility tde-tdebindings"
+short_desc="Trinity Desktop Environment - Complete meta package"
+maintainer="Your Name <your.email@example.com>"
+license="GPL-2.0-or-later"
+homepage="https://trinitydesktop.org"

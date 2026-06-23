@@ -1,0 +1,31 @@
+# Template file for 'tde-tqtinterface'
+pkgname=tde-tqtinterface
+version=14.1.6
+revision=1
+archs="x86_64 x86_64-musl i686 aarch64 armv7l"
+build_style=cmake
+configure_args="
+ -DCMAKE_INSTALL_PREFIX=/opt/trinity
+ -DLIB_SUFFIX=${XBPS_TARGET_WORDSIZE}
+ -DBUILD_ALL=ON"
+hostmakedepends="cmake ninja pkg-config tde-cmake-trinity"
+makedepends="tde-tqt3-devel"
+depends="tde-tqt3"
+short_desc="Trinity Desktop TQt interface layer"
+maintainer="Your Name <your.email@example.com>"
+license="GPL-2.0-or-later"
+homepage="https://trinitydesktop.org"
+distfiles="https://mirror.ppa.trinitydesktop.org/trinity/releases/R${version}/main/dependencies/tqtinterface-trinity-${version}.tar.xz"
+checksum=4c489d89969d0e34ff5f1ff081d4470ed053cfdbea3ce77f0a7a47d19013eeda
+
+tde-tqtinterface-devel_package() {
+    short_desc +=" - development files"
+    depends="${sourcepkg}>=${version}_${revision}"
+    pkg_install(){
+        vmove opt/trinity/include
+        vmove "opt/trinity/lib/*.a"
+        vmove "opt/trinity/lib/*.so"
+        vmove opt/trinity/lib/pkgconfig
+        vmove opt/trinity/lib/cmake
+    }
+}
